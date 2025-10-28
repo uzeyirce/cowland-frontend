@@ -1,73 +1,104 @@
 import { useState } from "react";
 import { ethers } from "ethers";
 
-const CONTRACT_ADDRESS = "0x1611DF4f0822487A69E31582deF6cd92772a05F5";
-const CONTRACT_ABI = [
-  "function mint(uint256 amount) public payable",
-  "function totalMinted() public view returns(uint256)",
-  "function saleActive() public view returns(bool)",
-  "function tokenURI(uint256 tokenId) public view returns (string)"
-];
+const CONTRACT_ADDRESS = "0x1611DF4f0822487A69E31582deF6cd92772a05F5"; // örn: 0x1611D...
+const MINT_PRICE = "0.003";
 
 export default function Home() {
-  const [wallet, setWallet] = useState(null);
-  const [minting, setMinting] = useState(false);
+  const [account, setAccount] = useState(null);
   const [status, setStatus] = useState("");
-  const [totalMinted, setTotalMinted] = useState(0);
+  const [minting, setMinting] = useState(false);
 
-  async function connect() {
-    if (!window.ethereum) return alert("Metamask gerekli!");
-    const [addr] = await window.ethereum.request({ method: "eth_requestAccounts" });
-    setWallet(addr);
-    await updateTotalMinted();
-  }
-
-  async function updateTotalMinted() {
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, await provider.getSigner());
-    const count = await contract.totalMinted();
-    setTotalMinted(Number(count));
+  async function connectWallet() {
+    if (!window.ethereum) {
+      alert("Metamask yüklü değil!");
+      return;
+    }
+    const accounts = await window.ethereum.request({
+      method: "eth_requestAccounts",
+    });
+    setAccount(accounts[0]);
   }
 
   async function mintNFT() {
-    if (!wallet) return alert("Cüzdan bağlı değil");
-    setMinting(true);
-    setStatus("Mint başlatılıyor...");
-
     try {
+      setMinting(true);
+      setStatus("işlem gönderiliyor...");
+
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signer = await provider.getSigner();
-      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-      const tx = await contract.mint(1, { value: ethers.parseEther("0.003") });
+
+      const abi = [
+        "function mint(uint256 amount) payable",
+        "function saleActive() view returns (bool)",
+      ];
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, signer);
+
+      const tx = await contract.mint(1, {
+        value: ethers.parseEther(MINT_PRICE),
+      });
+
+      setStatus("blokchain'e yazılıyor...");
       await tx.wait();
-      setStatus("✅ Mint başarılı!");
-      await updateTotalMinted();
+      setStatus("✅ başarıyla mint edildi!");
     } catch (err) {
       console.error(err);
-      setStatus("❌ Hata: " + err.message);
+      setStatus("❌ hata: " + (err.reason || err.message));
+    } finally {
+      setMinting(false);
     }
-
-    setMinting(false);
   }
 
   return (
-    <main style={{ textAlign: "center", padding: "60px" }}>
-      <h1>Cowland 🐮 NFT Mint</h1>
+    <div className="min-h-screen bg-gradient-to-b from-lime-50 to-green-200 flex flex-col items-center justify-center font-sans text-gray-800 p-6">
+      <h1 className="text-5xl font-bold mb-4">🐄 Cowland NFT</h1>
+      <p className="text-center max-w-xl mb-8 text-lg">
+        Gerçek inek sahipliğini NFT dünyasına taşıyoruz.  
+        Her Cowland NFT'si bir inekteki <b>payı</b> temsil eder.  
+        Toplam 9999 NFT, 0.003 ETH karşılığında mintlenebilir.
+      </p>
 
-      {!wallet ? (
-        <button onClick={connect}>🔗 Cüzdanı Bağla</button>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+        {["common", "silver", "gold", "bronze"].map((name) => (
+          <div key={name} className="bg-white p-3 rounded-xl shadow hover:shadow-lg transition">
+            <img
+              src={`/images/${name}.png`}
+              alt={name}
+              className="rounded-md mb-2"
+            />
+            <p className="capitalize text-center font-medium">{name} cow</p>
+          </div>
+        ))}
+      </div>
+
+      {!account ? (
+        <button
+          onClick={connectWallet}
+          className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-lg"
+        >
+          Cüzdanı Bağla
+        </button>
       ) : (
-        <p>Bağlı: {wallet}</p>
+        <button
+          onClick={mintNFT}
+          disabled={minting}
+          className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-8 py-3 rounded-lg disabled:opacity-50"
+        >
+          {minting ? "Mintleniyor..." : "Mint NFT"}
+        </button>
       )}
 
-      <p>Toplam Mintlenen: {totalMinted} / 9999</p>
+      <p className="mt-6 text-md text-gray-700">{status}</p>
+      {account && (
+        <p className="mt-2 text-sm text-gray-500">
+          bağlı: {account.slice(0, 6)}...{account.slice(-4)}
+        </p>
+      )}
 
-      <button onClick={mintNFT} disabled={minting}>
-        {minting ? "Mintleniyor..." : "Mint Et (0.003 ETH)"}
-      </button>
-
-      <p style={{ marginTop: "20px" }}>{status}</p>
-    </main>
+      <footer className="mt-10 text-gray-500 text-sm">
+        © 2025 Cowland | turquoiselab.io
+      </footer>
+    </div>
   );
 }
 
