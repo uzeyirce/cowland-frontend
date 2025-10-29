@@ -1,0 +1,8 @@
+{
+  "version": "1",
+  "name": "Cowland",
+  "description": "NFT minting dApp built on Base",
+  "website": "https://cowland.turquoiselab.io",
+  "redirect_uris": ["https://cowland.vercel.app"]
+}
+
